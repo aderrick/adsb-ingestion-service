@@ -82,70 +82,70 @@ class DatabaseManager:
             if conn:
                 conn.close()
     
-def batch_insert_messages(self, messages: List[Dict[str, Any]]) -> int:
-    """
-    Batch insert parsed ADS-B messages
-    
-    Args:
-        messages: List of parsed message dictionaries
+    def batch_insert_messages(self, messages: List[Dict[str, Any]]) -> int:
+        """
+        Batch insert parsed ADS-B messages
         
-    Returns:
-        Number of messages inserted
-    """
-    if not messages:
-        return 0
-    
-    inserted = 0
-    with self.get_connection() as conn:
-        cursor = conn.cursor()
+        Args:
+            messages: List of parsed message dictionaries
+            
+        Returns:
+            Number of messages inserted
+        """
+        if not messages:
+            return 0
         
-        try:
-            # IMPORTANT: Insert aircraft FIRST to satisfy foreign key constraints
-            self._upsert_aircraft(cursor, messages)
+        inserted = 0
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
             
-            # Now insert into messages table
-            message_sql = """
-                INSERT INTO messages 
-                (icao24, message_type, timestamp, callsign, altitude, ground_speed, 
-                 track, lat, lon, vertical_rate, squawk, alert, emergency, spi, is_on_ground)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            
-            message_data = []
-            for msg in messages:
-                message_data.append((
-                    msg.get('icao24'),
-                    msg.get('message_type'),
-                    msg.get('timestamp'),
-                    msg.get('callsign'),
-                    msg.get('altitude'),
-                    msg.get('ground_speed'),
-                    msg.get('track'),
-                    msg.get('lat'),
-                    msg.get('lon'),
-                    msg.get('vertical_rate'),
-                    msg.get('squawk'),
-                    msg.get('alert'),
-                    msg.get('emergency'),
-                    msg.get('spi'),
-                    msg.get('is_on_ground')
-                ))
-            
-            cursor.executemany(message_sql, message_data)
-            inserted = cursor.rowcount
-            
-            # Insert position data
-            self._insert_positions(cursor, messages)
-            
-            conn.commit()
-            logger.debug(f"Inserted {inserted} messages into database")
-            
-        except MySQLError as e:
-            conn.rollback()
-            logger.error(f"Batch insert failed: {e}")
-            raise
-    
-    return inserted
+            try:
+                # FIRST: Insert/update aircraft to satisfy foreign key constraints
+                self._upsert_aircraft(cursor, messages)
+                
+                # SECOND: Insert into messages table
+                message_sql = """
+                    INSERT INTO messages 
+                    (icao24, message_type, timestamp, callsign, altitude, ground_speed, 
+                     track, lat, lon, vertical_rate, squawk, alert, emergency, spi, is_on_ground)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                
+                message_data = []
+                for msg in messages:
+                    message_data.append((
+                        msg.get('icao24'),
+                        msg.get('message_type'),
+                        msg.get('timestamp'),
+                        msg.get('callsign'),
+                        msg.get('altitude'),
+                        msg.get('ground_speed'),
+                        msg.get('track'),
+                        msg.get('lat'),
+                        msg.get('lon'),
+                        msg.get('vertical_rate'),
+                        msg.get('squawk'),
+                        msg.get('alert'),
+                        msg.get('emergency'),
+                        msg.get('spi'),
+                        msg.get('is_on_ground')
+                    ))
+                
+                cursor.executemany(message_sql, message_data)
+                inserted = cursor.rowcount
+                
+                # THIRD: Insert position data
+                self._insert_positions(cursor, messages)
+                
+                conn.commit()
+                logger.debug(f"Inserted {inserted} messages into database")
+                
+            except MySQLError as e:
+                conn.rollback()
+                logger.error(f"Batch insert failed: {e}")
+                raise
+        
+        return inserted
     
     def _upsert_aircraft(self, cursor, messages: List[Dict[str, Any]]):
         """Update or insert aircraft information"""
@@ -240,4 +240,3 @@ def batch_insert_messages(self, messages: List[Dict[str, Any]]) -> int:
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
             return False
-            
