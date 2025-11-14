@@ -82,24 +82,28 @@ class DatabaseManager:
             if conn:
                 conn.close()
     
-    def batch_insert_messages(self, messages: List[Dict[str, Any]]) -> int:
-        """
-        Batch insert parsed ADS-B messages
+def batch_insert_messages(self, messages: List[Dict[str, Any]]) -> int:
+    """
+    Batch insert parsed ADS-B messages
+    
+    Args:
+        messages: List of parsed message dictionaries
         
-        Args:
-            messages: List of parsed message dictionaries
-            
-        Returns:
-            Number of messages inserted
-        """
-        if not messages:
-            return 0
+    Returns:
+        Number of messages inserted
+    """
+    if not messages:
+        return 0
+    
+    inserted = 0
+    with self.get_connection() as conn:
+        cursor = conn.cursor()
         
-        inserted = 0
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
+        try:
+            # IMPORTANT: Insert aircraft FIRST to satisfy foreign key constraints
+            self._upsert_aircraft(cursor, messages)
             
-            # Insert into messages table
+            # Now insert into messages table
             message_sql = """
                 INSERT INTO messages 
                 (icao24, message_type, timestamp, callsign, altitude, ground_speed, 
@@ -127,25 +131,21 @@ class DatabaseManager:
                     msg.get('is_on_ground')
                 ))
             
-            try:
-                cursor.executemany(message_sql, message_data)
-                inserted = cursor.rowcount
-                
-                # Update aircraft table (upsert)
-                self._upsert_aircraft(cursor, messages)
-                
-                # Insert position data
-                self._insert_positions(cursor, messages)
-                
-                conn.commit()
-                logger.debug(f"Inserted {inserted} messages into database")
-                
-            except MySQLError as e:
-                conn.rollback()
-                logger.error(f"Batch insert failed: {e}")
-                raise
-        
-        return inserted
+            cursor.executemany(message_sql, message_data)
+            inserted = cursor.rowcount
+            
+            # Insert position data
+            self._insert_positions(cursor, messages)
+            
+            conn.commit()
+            logger.debug(f"Inserted {inserted} messages into database")
+            
+        except MySQLError as e:
+            conn.rollback()
+            logger.error(f"Batch insert failed: {e}")
+            raise
+    
+    return inserted
     
     def _upsert_aircraft(self, cursor, messages: List[Dict[str, Any]]):
         """Update or insert aircraft information"""

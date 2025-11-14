@@ -22,7 +22,7 @@ SERVICE_USER="adsb"
 # Install system dependencies
 echo "Installing system dependencies..."
 apt-get update
-apt-get install -y python3 python3-pip python3-venv mysql-client
+apt-get install -y python3 python3-pip python3-venv mariadb-client-compat
 
 # Create service user
 if ! id "$SERVICE_USER" &>/dev/null; then
