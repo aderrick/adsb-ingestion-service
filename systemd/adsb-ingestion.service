@@ -1,0 +1,35 @@
+[Unit]
+Description=ADS-B Data Ingestion Service
+After=network.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=adsb
+Group=adsb
+WorkingDirectory=/opt/adsb-ingestion
+Environment="PATH=/opt/adsb-ingestion/venv/bin"
+ExecStart=/opt/adsb-ingestion/venv/bin/python3 /opt/adsb-ingestion/main.py /etc/adsb-ingestion/config.yaml
+
+# Restart configuration
+Restart=always
+RestartSec=10
+StartLimitInterval=0
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/adsb-ingestion
+
+# Resource limits
+LimitNOFILE=65536
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=adsb-ingestion
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,32 @@
+# ADS-B Ingestion Service Configuration
+
+# Dump1090 connection settings
+dump1090:
+  host: localhost
+  port: 30003  # BaseStation format port
+  reconnect_interval: 5  # Initial reconnect interval in seconds
+  max_reconnect_interval: 60  # Maximum reconnect interval
+
+# Database configuration
+database:
+  host: localhost
+  port: 3306
+  database: adsb
+  user: adsb_user
+  password: change_this_password  # Change in production!
+  pool_size: 5
+  pool_name: adsb_pool
+
+# Data processing settings
+processing:
+  batch_size: 100  # Number of messages to batch before insert
+  batch_timeout: 1.0  # Maximum seconds to wait before flushing batch
+  enable_deduplication: true  # Enable duplicate message filtering
+  dedup_window: 2  # Deduplication window in seconds
+
+# Logging configuration
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: /var/log/adsb-ingestion/service.log
+  max_bytes: 10485760  # 10MB
+  backup_count: 5  # Keep 5 backup log files
