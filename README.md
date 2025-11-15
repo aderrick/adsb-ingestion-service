@@ -1,15 +1,16 @@
 # ADS-B Data Ingestion Service
 
-A production-ready headless service for ingesting ADS-B (Automatic Dependent Surveillance-Broadcast) data from Dump1090 devices and storing it in a MySQL database.
+Service for ingesting ADS-B (Automatic Dependent Surveillance-Broadcast) data from Dump1090 and storing it in MySQL.
 
 ## Features
 
-- **Continuous Data Ingestion**: Connects to Dump1090 BaseStation format output (port 30003)
-- **Robust Error Handling**: Automatic reconnection, retry logic, graceful degradation
-- **High Performance**: Batch processing, connection pooling, optimized database writes
-- **Production Ready**: Systemd integration, comprehensive logging, configurable settings
-- **Data Deduplication**: Optional filtering of duplicate messages
-- **Easy Deployment**: Installation scripts and detailed documentation
+- Connects to Dump1090 BaseStation format output (TCP port 30003)
+- Automatic reconnection and retry logic
+- Batch processing with configurable size and timeout
+- Connection pooling for database writes
+- Optional message deduplication
+- Systemd service integration
+- Configuration via YAML with environment variable overrides
 
 ## Architecture
 
@@ -27,11 +28,11 @@ A production-ready headless service for ingesting ADS-B (Automatic Dependent Sur
 
 ### Components
 
-1. **Config Manager**: Loads configuration from YAML with environment variable overrides
-2. **Dump1090 Client**: TCP client with automatic reconnection
-3. **ADS-B Parser**: Parses BaseStation (SBS-1) format messages
-4. **Data Processor**: Batches messages for efficient database insertion
-5. **Database Manager**: MySQL connection pooling and query execution
+1. Config Manager: Loads configuration from YAML with environment variable overrides
+2. Dump1090 Client: TCP client with automatic reconnection
+3. ADS-B Parser: Parses BaseStation (SBS-1) format messages
+4. Data Processor: Batches messages for efficient database insertion
+5. Database Manager: MySQL connection pooling and query execution
 
 ## Installation
 
@@ -44,38 +45,30 @@ A production-ready headless service for ingesting ADS-B (Automatic Dependent Sur
 
 ### Quick Start
 
-1. **Clone or download the application**
+1. Clone repository to /opt/adsb-ingestion-service
 
-```bash
-cd /opt
-sudo mkdir adsb-ingestion-service
-cd adsb-ingestion-service
-# Copy all files here
-```
-
-2. **Run installation script**
+2. Run installation script:
 
 ```bash
 sudo chmod +x scripts/install.sh
 sudo ./scripts/install.sh
 ```
 
-3. **Setup MySQL database**
+3. Setup MySQL database:
 
 ```bash
-# Login to MySQL
-mysql -u root -p
+mysql -u root -p < database/schema.sql
+```
 
-# Create user and database
-source database/schema.sql
+Or manually create user and database:
 
-# Or manually:
+```sql
 CREATE USER 'adsb_user'@'localhost' IDENTIFIED BY 'your_secure_password';
 GRANT SELECT, INSERT, UPDATE ON adsb.* TO 'adsb_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-4. **Configure the service**
+4. Configure service:
 
 ```bash
 sudo nano /etc/adsb-ingestion/config.yaml
@@ -83,7 +76,7 @@ sudo nano /etc/adsb-ingestion/config.yaml
 
 Update database credentials and Dump1090 connection details.
 
-5. **Install and start systemd service**
+5. Start service:
 
 ```bash
 sudo chmod +x scripts/setup_service.sh
@@ -91,7 +84,7 @@ sudo ./scripts/setup_service.sh
 sudo systemctl start adsb-ingestion
 ```
 
-6. **Check status**
+6. Verify operation:
 
 ```bash
 sudo systemctl status adsb-ingestion
@@ -139,23 +132,14 @@ Configuration can be overridden with environment variables:
 
 ### Tables
 
-**aircraft**: Master aircraft registry
-- `icao24`: Unique aircraft identifier
-- `callsign`: Aircraft callsign
-- `first_seen`, `last_seen`: Activity timestamps
-
-**messages**: All ADS-B messages
-- Full message details including position, velocity, altitude
-- Indexed by ICAO, timestamp, message type
-
-**positions**: Time-series position data
-- Optimized for spatial queries
-- Contains lat/lon with indexes
+- aircraft: Master aircraft registry (icao24, callsign, first_seen, last_seen)
+- messages: All ADS-B messages with position, velocity, altitude data
+- positions: Time-series position data optimized for spatial queries
 
 ### Views
 
-**latest_positions**: Current position of all aircraft
-**statistics**: Service statistics and metrics
+- latest_positions: Current position of all aircraft
+- statistics: Service statistics and metrics
 
 ## Usage
 
@@ -341,227 +325,9 @@ For issues and questions:
 
 ## Version History
 
-- **1.0.0** (2024): Initial release
+- 1.0.0 (2024): Initial release
   - BaseStation format support
   - MySQL 8.4 compatibility
   - Systemd integration
   - Batch processing
   - Automatic reconnection
-```
-
----
-
-## 7. Quick Deployment Guide
-
-### `DEPLOYMENT.md`
-
-```markdown
-# Quick Deployment Guide
-
-## Prerequisites Check
-
-```bash
-# Check Python version
-python3 --version  # Should be 3.8+
-
-# Check MySQL
-mysql --version  # Should be 8.0+
-
-# Check Dump1090
-netstat -tlnp | grep 30003  # Should show listening port
-```
-
-## Installation Steps
-
-### 1. Prepare System
-
-```bash
-# Update system
-sudo apt-get update && sudo apt-get upgrade -y
-
-# Install dependencies
-sudo apt-get install -y python3 python3-pip python3-venv mysql-server git
-```
-
-### 2. Setup MySQL
-
-```bash
-# Secure MySQL installation
-sudo mysql_secure_installation
-
-# Create database and user
-sudo mysql -u root -p << EOF
-CREATE DATABASE adsb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'adsb_user'@'localhost' IDENTIFIED BY 'SecurePassword123!';
-GRANT SELECT, INSERT, UPDATE ON adsb.* TO 'adsb_user'@'localhost';
-FLUSH PRIVILEGES;
-EXIT;
-EOF
-
-# Import schema
-sudo mysql -u root -p adsb < database/schema.sql
-```
-
-### 3. Install Application
-
-```bash
-# Make scripts executable
-chmod +x scripts/*.sh
-
-# Run installer
-sudo ./scripts/install.sh
-```
-
-### 4. Configure
-
-```bash
-# Edit configuration
-sudo nano /etc/adsb-ingestion/config.yaml
-
-# Update these values:
-# - database.password
-# - dump1090.host (if not localhost)
-```
-
-### 5. Deploy Service
-
-```bash
-# Setup systemd service
-sudo ./scripts/setup_service.sh
-
-# Start service
-sudo systemctl start adsb-ingestion
-
-# Check status
-sudo systemctl status adsb-ingestion
-
-# View logs
-sudo journalctl -u adsb-ingestion -f
-```
-
-### 6. Verify Operation
-
-```bash
-# Check service is running
-sudo systemctl is-active adsb-ingestion
-
-# Check database for data
-mysql -u adsb_user -p adsb -e "SELECT COUNT(*) FROM messages;"
-
-# View statistics
-mysql -u adsb_user -p adsb -e "SELECT * FROM statistics;"
-```
-
-## Post-Deployment
-
-### Enable Auto-Start
-
-```bash
-sudo systemctl enable adsb-ingestion
-```
-
-### Setup Log Rotation
-
-```bash
-sudo tee /etc/logrotate.d/adsb-ingestion << EOF
-/var/log/adsb-ingestion/*.log {
-    daily
-    rotate 7
-    compress
-    delaycompress
-    missingok
-    notifempty
-    create 0644 adsb adsb
-}
-EOF
-```
-
-### Monitor
-
-```bash
-# Watch real-time stats
-watch -n 5 'mysql -u adsb_user -pSecurePassword123! adsb -e "SELECT * FROM statistics;"'
-
-# Monitor logs
-tail -f /var/log/adsb-ingestion/service.log
-```
-
-## Troubleshooting
-
-### Service Fails to Start
-
-```bash
-# Check configuration syntax
-python3 /opt/adsb-ingestion/main.py /etc/adsb-ingestion/config.yaml
-
-# Check permissions
-ls -la /opt/adsb-ingestion
-ls -la /var/log/adsb-ingestion
-
-# Fix permissions if needed
-sudo chown -R adsb:adsb /opt/adsb-ingestion
-sudo chown -R adsb:adsb /var/log/adsb-ingestion
-```
-
-### No Data Appearing
-
-```bash
-# Verify Dump1090 connection
-telnet localhost 30003
-
-# Check for errors
-sudo journalctl -u adsb-ingestion -n 100
-
-# Verify database connectivity
-mysql -u adsb_user -p adsb -e "SELECT 1;"
-```
-
-## Performance Optimization
-
-### For High Message Rates
-
-Edit `/etc/adsb-ingestion/config.yaml`:
-
-```yaml
-processing:
-  batch_size: 500  # Increase batch size
-  batch_timeout: 0.5  # Reduce timeout
-
-database:
-  pool_size: 10  # Increase pool size
-```
-
-### MySQL Tuning
-
-Edit `/etc/mysql/mysql.conf.d/mysqld.cnf`:
-
-```ini
-[mysqld]
-innodb_buffer_pool_size = 2G
-innodb_log_file_size = 512M
-innodb_flush_log_at_trx_commit = 2
-```
-
-Restart MySQL: `sudo systemctl restart mysql`
-
-## Complete!
-
-Your ADS-B ingestion service is now running. Monitor logs and database to ensure proper operation.
-```
-
----
-
-This complete application provides a production-ready ADS-B data ingestion service with:
-
-✅ Full source code in modular Python architecture  
-✅ MySQL 8.4 compatible database schema  
-✅ Comprehensive configuration management  
-✅ Robust error handling and reconnection logic  
-✅ Batch processing for high performance  
-✅ Systemd integration for service management  
-✅ Complete installation and deployment scripts  
-✅ Detailed documentation and troubleshooting guides  
-✅ Security best practices  
-✅ Log rotation and monitoring  
-
-The service can handle thousands of messages per second, automatically recovers from network interruptions, and provides easy deployment on any Debian/Ubuntu Linux system.
